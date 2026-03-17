@@ -1,0 +1,120 @@
+
+> image-background-remover@1.0.0 dev
+> next dev
+
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+⚠ `images.domains` is deprecated in favor of `images.remotePatterns`. Please update next.config.mjs to protect your application from malicious users.
+▲ Next.js 16.1.7 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://10.3.0.6:3001
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 461ms
+○ Compiling / ...
+ GET / 200 in 3.4s (compile: 3.2s, render: 168ms)
+⚠ Cross origin request detected from polymer-corporate-define-award.trycloudflare.com to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ POST /api/remove-background 200 in 43s
+ GET / 200 in 61ms (compile: 4ms, render: 56ms)
+✓ Compiled in 104ms
+ GET / 200 in 186ms (compile: 97ms, render: 90ms)
+ GET / 200 in 34ms (compile: 3ms, render: 31ms)
+✓ Compiled in 282ms
+✓ Compiled in 130ms
+
+Caused by:
+    0: Unable to open static sorted file 00000036.sst
+    1: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (1466562) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 14999827 out of range for slice of length 14998627
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tokio-runtime-worker' (1466607) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 14999851 out of range for slice of length 14998627
+
+thread 'tokio-runtime-worker' (1466607) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 14999787 out of range for slice of length 14998627
+⨯ ./node_modules/styled-jsx/style.js:1:18
+Module not found: Can't resolve './dist/index'
+[0m[31m[1m>[22m[39m[90m 1 |[39m module[33m.[39mexports [33m=[39m require([32m'./dist/index'[39m)[33m.[39mstyle
+ [90m   |[39m                  [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 2 |[39m[0m
+
+range start index 14999787 out of range for slice of length 14998627
+
+Debug info:
+- Execution of <ModuleAssetContext as AssetContext>::resolve_asset failed
+- Execution of resolve failed
+- range start index 14999787 out of range for slice of length 14998627
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/styled-jsx/style.js [Client Component Browser]
+    ./projects/image-background-remover/app/page.tsx [Client Component Browser]
+    ./projects/image-background-remover/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/styled-jsx/style.js [Client Component SSR]
+    ./projects/image-background-remover/app/page.tsx [Client Component SSR]
+    ./projects/image-background-remover/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/styled-jsx/dist/index/index.js:2:13
+Module not found: Can't resolve 'react'
+[0m [90m 1 |[39m require([32m'client-only'[39m)[33m;[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mvar[39m [33mReact[39m [33m=[39m require([32m'react'[39m)[33m;[39m
+ [90m   |[39m             [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m [36mfunction[39m _interopDefaultLegacy (e) { [36mreturn[39m e [33m&&[39m [36mtypeof[39m e [33m===[39m [32m'object'[39m [33m&&[39m [32m'default'[39m [36min[39m e [33m?[39m e [33m:[39m { [32m'default'[39m[33m:[39m e }[33m;[39m }
+ [90m 5 |[39m[0m
+
+range start index 14999851 out of range for slice of length 14998627
+
+Debug info:
+- Execution of <ModuleAssetContext as AssetContext>::resolve_asset failed
+- Execution of resolve failed
+- range start index 14999851 out of range for slice of length 14998627
+Import map: aliased to module 'next' with subpath '/dist/server/route-modules/app-page/vendored/ssr/react' inside of [project]/projects/image-background-remover
+
+
+Import trace:
+  Client Component SSR:
+    ./node_modules/styled-jsx/dist/index/index.js [Client Component SSR]
+    ./node_modules/styled-jsx/style.js [Client Component SSR]
+    ./projects/image-background-remover/app/page.tsx [Client Component SSR]
+    ./projects/image-background-remover/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./projects/image-background-remover/app/page.tsx
+Module not found: Can't resolve 'styled-jsx/style'
+range start index 14999827 out of range for slice of length 14998627
+
+Debug info:
+- Execution of <ModuleAssetContext as AssetContext>::process_resolve_result failed
+- Execution of <ModuleAssetContext as AssetContext>::process failed
+- range start index 14999827 out of range for slice of length 14998627
+Import map: aliased to module 'styled-jsx' with subpath '/style' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./projects/image-background-remover/app/page.tsx [Client Component Browser]
+    ./projects/image-background-remover/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./projects/image-background-remover/app/page.tsx [Client Component SSR]
+    ./projects/image-background-remover/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)

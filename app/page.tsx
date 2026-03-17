@@ -31,7 +31,6 @@ export default function Home() {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isDragging, setIsDragging] = useState(false);
 
-  // 处理文件选择
   const handleFileSelect = (file: File) => {
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
@@ -68,7 +67,6 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  // 处理拖拽上传
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -88,7 +86,6 @@ export default function Home() {
     setIsDragging(false);
   };
 
-  // 处理背景移除
   const handleRemoveBackground = async () => {
     if (!selectedFile) return;
 
@@ -147,7 +144,6 @@ export default function Home() {
     }
   };
 
-  // 下载图片
   const handleDownload = () => {
     if (!result.processedImage) return;
 
@@ -159,7 +155,6 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
-  // 重置
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -176,22 +171,24 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-slate-900/50 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                AI 背景移除工具
+              <h1 className="text-4xl font-black text-white mb-2 tracking-tight">
+                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  AI Background Remover
+                </span>
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                3秒快速移除图片背景 · 免费 · 无需注册
+              <p className="text-gray-400 text-sm">
+                Powered by AI · Free & Fast · No Registration
               </p>
             </div>
-            <div className="hidden md:flex items-center gap-2 text-sm text-gray-600">
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                ✨ 50张/月免费
+            <div className="hidden md:flex items-center gap-3">
+              <span className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-bold rounded-full shadow-lg shadow-purple-500/50">
+                ✨ 50 FREE/MONTH
               </span>
             </div>
           </div>
@@ -199,18 +196,24 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {!result.processedImage ? (
           /* 上传区域 */
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <div
-              className={`bg-white rounded-2xl shadow-xl p-8 transition-all duration-300 ${
-                isDragging ? "ring-4 ring-blue-500 bg-blue-50" : ""
+              className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${
+                isDragging
+                  ? "ring-4 ring-purple-500 shadow-2xl shadow-purple-500/50 scale-[1.02]"
+                  : ""
               }`}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
+              {/* 背景装饰 */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-blue-600/20 backdrop-blur-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -222,159 +225,241 @@ export default function Home() {
                 className="hidden"
               />
 
-              {!previewUrl ? (
-                <div className="text-center py-12">
-                  {/* 图标 */}
-                  <div className="mb-6 flex justify-center">
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                      <svg
-                        className="w-12 h-12 text-white"
-                        stroke="currentColor"
-                        fill="none"
-                        viewBox="0 0 48 48"
-                      >
-                        <path
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                          strokeWidth={2.5}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-
-                  <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                    拖拽图片到这里
-                  </h2>
-                  <p className="text-gray-600 mb-6">
-                    或点击下方按钮选择文件
-                  </p>
-
-                  {/* 支持格式 */}
-                  <div className="flex items-center justify-center gap-4 text-sm text-gray-500 mb-8">
-                    <span className="px-4 py-2 bg-gray-100 rounded-lg">
-                      JPG
-                    </span>
-                    <span className="px-4 py-2 bg-gray-100 rounded-lg">
-                      PNG
-                    </span>
-                    <span className="px-4 py-2 bg-gray-100 rounded-lg">
-                      WebP
-                    </span>
-                    <span className="px-4 py-2 bg-gray-100 rounded-lg">
-                      最大 5MB
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                  >
-                    选择图片
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  {/* 预览图片 */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                      预览
-                    </h3>
-                    <div className="bg-gray-50 rounded-xl p-4 flex justify-center">
-                      <img
-                        src={previewUrl}
-                        alt="预览"
-                        className="max-h-80 rounded-lg shadow-md"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 处理进度 */}
-                  {processing.isProcessing && (
-                    <div className="mb-6 bg-blue-50 rounded-xl p-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-blue-900">
-                          正在处理...
+              <div className="relative p-12 md:p-16">
+                {!previewUrl ? (
+                  <div className="text-center">
+                    {/* 主标题 */}
+                    <div className="mb-8">
+                      <h2 className="text-5xl md:text-6xl font-black text-white mb-6 tracking-tight">
+                        Remove Image
+                        <br />
+                        <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                          Background
                         </span>
-                        <span className="text-sm font-bold text-blue-600">
-                          {processing.progress}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 h-3 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${processing.progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 错误提示 */}
-                  {processing.error && (
-                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-                      <p className="text-red-700 font-medium">
-                        ⚠️ {processing.error}
+                      </h2>
+                      <p className="text-xl text-gray-300">
+                        Upload an image to remove its background instantly
                       </p>
+                    </div>
+
+                    {/* 上传按钮 */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group relative px-12 py-6 bg-white text-slate-900 rounded-2xl font-bold text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
+                    >
+                      <span className="relative z-10 flex items-center gap-3">
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        Choose Image
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <span className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-20 blur-xl group-hover:blur-2xl transition-all duration-300" />
+                    </button>
+
+                    {/* 支持格式 */}
+                    <div className="mt-8 flex items-center justify-center gap-6 text-sm text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span>JPG</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span>PNG</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span>WebP</span>
+                      </div>
+                      <span className="text-gray-500">·</span>
+                      <span>Max 5MB</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {/* 预览区域 */}
+                    <div className="mb-8">
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="max-h-96 mx-auto rounded-xl shadow-2xl"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 处理进度 */}
+                    {processing.isProcessing && (
+                      <div className="mb-8 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-white font-bold text-lg">
+                            Processing...
+                          </span>
+                          <span className="text-2xl font-black text-purple-400">
+                            {processing.progress}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/10 rounded-full h-4 overflow-hidden">
+                          <div
+                            className="h-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out relative overflow-hidden"
+                            style={{ width: `${processing.progress}%` }}
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 错误提示 */}
+                    {processing.error && (
+                      <div className="mb-8 bg-red-500/20 backdrop-blur-xl rounded-2xl p-6 border border-red-500/30">
+                        <div className="flex items-start gap-3">
+                          <svg
+                            className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-red-300 font-semibold text-lg">
+                              {processing.error}
+                            </p>
+                            <button
+                              onClick={() =>
+                                setProcessing({ ...processing, error: null })
+                              }
+                              className="mt-3 text-sm text-red-400 hover:text-red-300 underline"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 操作按钮 */}
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
                       <button
-                        onClick={() =>
-                          setProcessing({ ...processing, error: null })
-                        }
-                        className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                        onClick={handleRemoveBackground}
+                        disabled={processing.isProcessing}
+                        className="group relative px-10 py-5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-purple-500/50 hover:shadow-3xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
                       >
-                        关闭
+                        <span className="relative z-10 flex items-center justify-center gap-3">
+                          {processing.isProcessing ? (
+                            <>
+                              <svg
+                                className="w-6 h-6 animate-spin"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                />
+                              </svg>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-6 h-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                              </svg>
+                              Remove Background
+                            </>
+                          )}
+                        </span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </button>
+                      <button
+                        onClick={handleReset}
+                        disabled={processing.isProcessing}
+                        className="px-10 py-5 bg-white/10 backdrop-blur-xl text-white rounded-2xl font-bold text-xl border-2 border-white/20 hover:bg-white/20 transition-all duration-300 disabled:opacity-50"
+                      >
+                        Choose Different Image
                       </button>
                     </div>
-                  )}
-
-                  {/* 操作按钮 */}
-                  <div className="flex gap-4 justify-center">
-                    <button
-                      onClick={handleRemoveBackground}
-                      disabled={processing.isProcessing}
-                      className="flex-1 max-w-xs px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {processing.isProcessing ? "处理中..." : "移除背景"}
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      disabled={processing.isProcessing}
-                      className="px-8 py-4 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
-                    >
-                      重新选择
-                    </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* 功能说明卡片 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-              <div className="bg-white rounded-xl p-6 shadow-md">
-                <div className="text-3xl mb-3">⚡</div>
-                <h3 className="font-semibold text-gray-900 mb-2">快速处理</h3>
-                <p className="text-sm text-gray-600">3-5秒完成背景移除</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-md">
-                <div className="text-3xl mb-3">🔒</div>
-                <h3 className="font-semibold text-gray-900 mb-2">隐私保护</h3>
-                <p className="text-sm text-gray-600">图片仅在内存中处理</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-md">
-                <div className="text-3xl mb-3">💎</div>
-                <h3 className="font-semibold text-gray-900 mb-2">高质量</h3>
-                <p className="text-sm text-gray-600">AI 智能识别边缘</p>
-              </div>
+            {/* 特性卡片 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+              {[
+                {
+                  icon: "⚡",
+                  title: "Lightning Fast",
+                  desc: "Process images in 3-5 seconds with AI",
+                },
+                {
+                  icon: "🔒",
+                  title: "Privacy First",
+                  desc: "Images processed in memory, never stored",
+                },
+                {
+                  icon: "💎",
+                  title: "High Quality",
+                  desc: "Smart edge detection for perfect results",
+                },
+              ].map((feature, index) => (
+                <div
+                  key={index}
+                  className="group bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105"
+                >
+                  <div className="text-5xl mb-4">{feature.icon}</div>
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-400">{feature.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         ) : (
           /* 结果展示 */
-          <div className="max-w-6xl mx-auto space-y-6">
-            {/* 成功提示 */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {/* 成功横幅 */}
+            <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-xl rounded-3xl p-8 border border-green-500/30">
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-xl shadow-green-500/50">
                   <svg
-                    className="w-6 h-6 text-white"
+                    className="w-10 h-10 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -382,40 +467,38 @@ export default function Home() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={3}
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-green-900">
-                    处理完成！
+                <div className="flex-1">
+                  <h2 className="text-3xl font-black text-white mb-2">
+                    Background Removed Successfully!
                   </h2>
-                  <p className="text-sm text-green-700 mt-1">
-                    您的图片背景已成功移除
+                  <p className="text-gray-300 text-lg">
+                    Your image is ready to download
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* 图片对比区域 */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
+            {/* 图片对比 */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* 原图 */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      原图
-                    </h3>
-                    <span className="text-xs text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-white">Original</h3>
+                    <span className="text-sm text-gray-400 px-4 py-2 bg-white/10 rounded-full">
                       Before
                     </span>
                   </div>
-                  <div className="checkerboard-bg rounded-xl p-4 border-2 border-gray-200">
+                  <div className="checkerboard-bg rounded-2xl p-6 border-2 border-white/20">
                     <img
                       src={result.originalImage!}
-                      alt="原图"
-                      className="w-full rounded-lg"
+                      alt="Original"
+                      className="w-full rounded-xl"
                       style={{ transform: `scale(${zoomLevel / 100})` }}
                     />
                   </div>
@@ -423,19 +506,17 @@ export default function Home() {
 
                 {/* 处理后 */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      处理后
-                    </h3>
-                    <span className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                      ✓ 完成
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-white">Processed</h3>
+                    <span className="text-sm text-white px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full font-bold">
+                      ✓ Done
                     </span>
                   </div>
-                  <div className="checkerboard-bg rounded-xl p-4 border-2 border-green-200">
+                  <div className="checkerboard-bg rounded-2xl p-6 border-2 border-green-500/50">
                     <img
                       src={result.processedImage!}
-                      alt="处理后"
-                      className="w-full rounded-lg"
+                      alt="Processed"
+                      className="w-full rounded-xl"
                       style={{ transform: `scale(${zoomLevel / 100})` }}
                     />
                   </div>
@@ -443,19 +524,17 @@ export default function Home() {
               </div>
 
               {/* 缩放控制 */}
-              <div className="mt-6 flex items-center justify-center gap-4">
-                <span className="text-sm font-medium text-gray-700">
-                  缩放:
-                </span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
+              <div className="mt-8 flex items-center justify-center gap-4">
+                <span className="text-white font-bold">Zoom:</span>
+                <div className="flex bg-white/10 rounded-2xl p-2 gap-2">
                   {[50, 100, 150].map((level) => (
                     <button
                       key={level}
                       onClick={() => setZoomLevel(level)}
-                      className={`px-6 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${
+                      className={`px-6 py-3 rounded-xl transition-all duration-200 font-bold ${
                         zoomLevel === level
-                          ? "bg-white text-blue-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-900"
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                          : "text-gray-300 hover:text-white hover:bg-white/10"
                       }`}
                     >
                       {level}%
@@ -465,13 +544,13 @@ export default function Home() {
               </div>
 
               {/* 操作按钮 */}
-              <div className="mt-8 flex flex-wrap gap-4 justify-center">
+              <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={handleDownload}
-                  className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center gap-2"
+                  className="group relative px-12 py-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-green-500/50 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-6 h-6"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -479,18 +558,18 @@ export default function Home() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
-                  下载图片
+                  Download Image
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center gap-2"
+                  className="px-12 py-6 bg-white/10 backdrop-blur-xl text-white rounded-2xl font-bold text-xl border-2 border-white/20 hover:bg-white/20 transition-all duration-300 flex items-center justify-center gap-3"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-6 h-6"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -498,36 +577,27 @@ export default function Home() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  处理新图片
+                  Process New Image
                 </button>
               </div>
             </div>
 
-            {/* 使用提示 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+            {/* 提示 */}
+            <div className="bg-blue-500/20 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30">
               <div className="flex items-start gap-4">
-                <div className="text-3xl">💡</div>
+                <div className="text-4xl">💡</div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-blue-900 mb-3">
-                    使用提示
+                  <h3 className="text-xl font-bold text-white mb-3">
+                    Tips
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-800">
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-1">•</span>
-                      <span>图片已自动处理为透明背景的 PNG 格式</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-1">•</span>
-                      <span>点击"下载图片"保存到本地</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-1">•</span>
-                      <span>本月免费额度: 50 张</span>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-300">
+                    <p>• Image saved as PNG with transparent background</p>
+                    <p>• Click Download to save to your device</p>
+                    <p>• 50 free images per month</p>
                   </div>
                 </div>
               </div>
@@ -537,15 +607,15 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white/80 backdrop-blur-md border-t border-gray-100 mt-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <footer className="bg-slate-900/50 backdrop-blur-xl border-t border-white/10 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-center md:text-left text-sm text-gray-600">
-              © 2026 AI Background Remover · 基于 Remove.bg API
+            <p className="text-gray-400 text-sm text-center md:text-left">
+              © 2026 AI Background Remover · Powered by Remove.bg API
             </p>
-            <p className="text-center md:text-right text-sm text-gray-600 flex items-center gap-2">
+            <p className="text-gray-400 text-sm flex items-center gap-2">
               <svg
-                className="w-4 h-4 text-green-600"
+                className="w-4 h-4 text-green-500"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -555,11 +625,25 @@ export default function Home() {
                   clipRule="evenodd"
                 />
               </svg>
-              隐私保护：图片仅在内存中处理
+              Privacy: Images processed in memory only
             </p>
           </div>
         </div>
       </footer>
+
+      <style jsx>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
     </div>
   );
 }
