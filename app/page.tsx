@@ -11,7 +11,6 @@ interface ProcessingState {
 interface ResultState {
   originalImage: string | null;
   processedImage: string | null;
-  showComparison: boolean;
 }
 
 export default function Home() {
@@ -25,11 +24,9 @@ export default function Home() {
   const [result, setResult] = useState<ResultState>({
     originalImage: null,
     processedImage: null,
-    showComparison: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
-  const [isDragging, setIsDragging] = useState(false);
 
   const handleFileSelect = (file: File) => {
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
@@ -54,11 +51,7 @@ export default function Home() {
 
     setSelectedFile(file);
     setProcessing({ isProcessing: false, progress: 0, error: null });
-    setResult({
-      originalImage: null,
-      processedImage: null,
-      showComparison: false,
-    });
+    setResult({ originalImage: null, processedImage: null });
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -67,33 +60,10 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
   const handleRemoveBackground = async () => {
     if (!selectedFile) return;
 
-    setProcessing({
-      isProcessing: true,
-      progress: 0,
-      error: null,
-    });
+    setProcessing({ isProcessing: true, progress: 0, error: null });
 
     try {
       const progressInterval = setInterval(() => {
@@ -127,14 +97,9 @@ export default function Home() {
       setResult({
         originalImage: previewUrl,
         processedImage: processedImageUrl,
-        showComparison: false,
       });
 
-      setProcessing({
-        isProcessing: false,
-        progress: 100,
-        error: null,
-      });
+      setProcessing({ isProcessing: false, progress: 100, error: null });
     } catch (error) {
       setProcessing({
         isProcessing: false,
@@ -146,7 +111,6 @@ export default function Home() {
 
   const handleDownload = () => {
     if (!result.processedImage) return;
-
     const link = document.createElement("a");
     link.href = result.processedImage;
     link.download = `removed-background-${Date.now()}.png`;
@@ -159,11 +123,7 @@ export default function Home() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setProcessing({ isProcessing: false, progress: 0, error: null });
-    setResult({
-      originalImage: null,
-      processedImage: null,
-      showComparison: false,
-    });
+    setResult({ originalImage: null, processedImage: null });
     setZoomLevel(100);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -171,61 +131,46 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Background Remover
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Remove image backgrounds instantly
-              </p>
-            </div>
-            <div className="hidden sm:block">
-              <span className="inline-flex items-center px-4 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg">
-                50 free/month
-              </span>
-            </div>
-          </div>
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-6 py-5">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Background Remover
+          </h1>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-12">
+      {/* Main */}
+      <main className="max-w-5xl mx-auto px-6 py-16">
         {!result.processedImage ? (
-          <div className="max-w-3xl mx-auto">
-            {/* Upload Area */}
-            <div
-              className={`bg-white rounded-2xl border-2 transition-all ${
-                isDragging
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileSelect(file);
-                }}
-                className="hidden"
-              />
+          <div className="text-center">
+            {/* Hero Section */}
+            <div className="mb-12">
+              <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                Remove Image
+                <br />
+                <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  Background Instantly
+                </span>
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                100% Automatic and Free • AI-Powered • No Quality Loss
+              </p>
+            </div>
 
+            {/* Upload Section */}
+            <div className="max-w-2xl mx-auto mb-16">
               {!previewUrl ? (
-                <div className="p-16 text-center">
-                  {/* Upload Icon */}
-                  <div className="mb-6">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <div>
+                  {/* Main CTA Button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group relative px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xl font-semibold rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                  >
+                    <span className="flex items-center justify-center gap-3">
                       <svg
-                        className="w-8 h-8 text-gray-500"
+                        className="w-6 h-6"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -233,58 +178,64 @@ export default function Home() {
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={2}
+                          strokeWidth={2.5}
                           d="M12 4v16m8-8H4"
                         />
                       </svg>
-                    </div>
-                  </div>
-
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Upload an image
-                  </h2>
-                  <p className="text-gray-500 mb-8">
-                    Drag and drop or click to browse
-                  </p>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Choose Image
+                      Upload Image
+                    </span>
                   </button>
 
-                  <p className="mt-6 text-sm text-gray-400">
-                    JPG, PNG, or WebP • Max 5MB
-                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect(file);
+                    }}
+                    className="hidden"
+                  />
+
+                  {/* Supported Formats */}
+                  <div className="mt-8 flex items-center justify-center gap-6 text-sm text-gray-500">
+                    {["JPG", "PNG", "WebP"].map((format) => (
+                      <div key={format} className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                        <span>{format}</span>
+                      </div>
+                    ))}
+                    <span className="text-gray-400">•</span>
+                    <span>Max 5MB</span>
+                  </div>
                 </div>
               ) : (
-                <div className="p-8">
+                <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
                   {/* Preview */}
                   <div className="mb-6">
-                    <div className="bg-gray-50 rounded-xl p-6 flex justify-center">
+                    <div className="bg-gray-50 rounded-2xl p-6">
                       <img
                         src={previewUrl}
                         alt="Preview"
-                        className="max-h-80 object-contain"
+                        className="max-h-80 mx-auto object-contain"
                       />
                     </div>
                   </div>
 
                   {/* Progress */}
                   {processing.isProcessing && (
-                    <div className="mb-6 bg-blue-50 rounded-xl p-6">
+                    <div className="mb-6">
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-blue-900">
+                        <span className="text-sm font-medium text-gray-700">
                           Processing...
                         </span>
-                        <span className="text-sm font-semibold text-blue-600">
+                        <span className="text-sm font-bold text-purple-600">
                           {processing.progress}%
                         </span>
                       </div>
-                      <div className="w-full bg-blue-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                         <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          className="h-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full transition-all duration-300"
                           style={{ width: `${processing.progress}%` }}
                         />
                       </div>
@@ -293,7 +244,7 @@ export default function Home() {
 
                   {/* Error */}
                   {processing.error && (
-                    <div className="mb-6 bg-red-50 rounded-xl p-4">
+                    <div className="mb-6 bg-red-50 rounded-2xl p-4">
                       <p className="text-red-700 text-sm font-medium">
                         {processing.error}
                       </p>
@@ -313,14 +264,14 @@ export default function Home() {
                     <button
                       onClick={handleRemoveBackground}
                       disabled={processing.isProcessing}
-                      className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
                     >
                       {processing.isProcessing ? "Processing..." : "Remove Background"}
                     </button>
                     <button
                       onClick={handleReset}
                       disabled={processing.isProcessing}
-                      className="px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      className="px-8 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -329,43 +280,49 @@ export default function Home() {
               )}
             </div>
 
-            {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+            {/* Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 {
-                  title: "Fast",
-                  desc: "3-5 seconds",
+                  icon: "⚡",
+                  title: "Lightning Fast",
+                  desc: "Process images in seconds with advanced AI",
                 },
                 {
-                  title: "Private",
-                  desc: "Not stored on server",
+                  icon: "🎯",
+                  title: "High Quality",
+                  desc: "Preserve fine details and edges perfectly",
                 },
                 {
-                  title: "Free",
-                  desc: "50 images/month",
+                  icon: "🔒",
+                  title: "100% Private",
+                  desc: "Images deleted instantly after processing",
                 },
               ].map((feature, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-xl p-5 border border-gray-200"
+                  className="bg-white rounded-2xl p-8 shadow-md hover:shadow-lg transition-shadow border border-gray-100"
                 >
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                  <div className="text-4xl mb-4">{feature.icon}</div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-gray-500">{feature.desc}</p>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    {feature.desc}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         ) : (
           /* Results */
-          <div className="max-w-5xl mx-auto">
+          <div>
             {/* Success Banner */}
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-8 mb-8 border border-green-100">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-8 h-8 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -373,32 +330,34 @@ export default function Home() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={3}
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-green-900">
-                    Background removed successfully
+                <div className="text-left">
+                  <h2 className="text-2xl font-bold text-green-900 mb-1">
+                    Success!
                   </h2>
-                  <p className="text-sm text-green-700 mt-1">
-                    Your image is ready to download
+                  <p className="text-green-700">
+                    Your image background has been removed
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Comparison */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 mb-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Original */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Original</h3>
-                    <span className="text-xs text-gray-500">Before</span>
+                    <h3 className="font-bold text-gray-900">Original</h3>
+                    <span className="text-xs text-gray-500 font-medium px-3 py-1 bg-gray-100 rounded-full">
+                      Before
+                    </span>
                   </div>
-                  <div className="checkerboard-bg rounded-lg p-4 border border-gray-200">
+                  <div className="checkerboard-bg rounded-xl p-4 border border-gray-200">
                     <img
                       src={result.originalImage!}
                       alt="Original"
@@ -411,12 +370,12 @@ export default function Home() {
                 {/* Processed */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Processed</h3>
-                    <span className="text-xs text-green-600 font-medium">
+                    <h3 className="font-bold text-gray-900">Processed</h3>
+                    <span className="text-xs text-white font-medium px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full">
                       ✓ Done
                     </span>
                   </div>
-                  <div className="checkerboard-bg rounded-lg p-4 border border-gray-200">
+                  <div className="checkerboard-bg rounded-xl p-4 border border-gray-200">
                     <img
                       src={result.processedImage!}
                       alt="Processed"
@@ -429,15 +388,15 @@ export default function Home() {
 
               {/* Zoom */}
               <div className="flex items-center justify-center gap-3 mb-8">
-                <span className="text-sm text-gray-600">Zoom:</span>
-                <div className="inline-flex bg-gray-100 rounded-lg p-1">
+                <span className="text-sm font-medium text-gray-700">Zoom:</span>
+                <div className="inline-flex bg-gray-100 rounded-xl p-1">
                   {[50, 100, 150].map((level) => (
                     <button
                       key={level}
                       onClick={() => setZoomLevel(level)}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
                         zoomLevel === level
-                          ? "bg-white text-gray-900 shadow-sm"
+                          ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-600 hover:text-gray-900"
                       }`}
                     >
@@ -451,7 +410,7 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={handleDownload}
-                  className="px-8 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                   <svg
                     className="w-5 h-5"
@@ -466,28 +425,28 @@ export default function Home() {
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
-                  Download
+                  Download Image
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-10 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
                 >
-                  New Image
+                  Process Another
                 </button>
               </div>
             </div>
 
             {/* Tips */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mt-6">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">💡</span>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-blue-900 mb-2">
-                    Tips
+            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">💡</div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-bold text-blue-900 mb-3">
+                    Tips for Best Results
                   </h3>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Image saved as PNG with transparent background</li>
-                    <li>• Click Download to save to your device</li>
+                  <ul className="text-sm text-blue-800 space-y-2">
+                    <li>• Image is saved as PNG with transparent background</li>
+                    <li>• Works best with clear subject and simple backgrounds</li>
                     <li>• 50 free images per month</li>
                   </ul>
                 </div>
@@ -498,11 +457,24 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-            <p>© 2026 Background Remover</p>
-            <p>Images processed in memory only • Not stored</p>
+      <footer className="bg-white border-t border-gray-100 mt-20">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
+            <p>© 2026 Background Remover. All rights reserved.</p>
+            <p className="flex items-center gap-2">
+              <svg
+                className="w-4 h-4 text-green-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Secure & Private
+            </p>
           </div>
         </div>
       </footer>

@@ -28,8 +28,9 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
  GET / 200 in 40ms (compile: 5ms, render: 35ms)
 ✓ Compiled in 183ms
 ✓ Compiled in 42ms
-
-thread 'tokio-runtime-worker' (1466562) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+ GET / 200 in 176ms (compile: 66ms, render: 110ms)
+✓ Compiled in 100ms
+bo-persistence/src/static_sorted_file.rs:387:51:
 range start index 14999827 out of range for slice of length 14998627
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
@@ -120,5 +121,6 @@ https://nextjs.org/docs/messages/module-not-found
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 ✓ Compiled in 161ms
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
