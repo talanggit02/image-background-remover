@@ -1,0 +1,32 @@
+{
+  "name": "image-background-remover",
+  "version": "1.0.0",
+  "description": "AI Background Remover - Remove image backgrounds using Remove.bg API",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "@types/react": "^19.0.6",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/talanggit02/image-background-remover.git"
+  },
+  "keywords": ["background-remover", "remove.bg", "next.js", "ai"],
+  "author": "张新",
+  "license": "MIT"
+}
