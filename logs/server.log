@@ -22,11 +22,12 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
  GET / 200 in 34ms (compile: 3ms, render: 31ms)
 ✓ Compiled in 282ms
 ✓ Compiled in 130ms
-
-Caused by:
-    0: Unable to open static sorted file 00000036.sst
-    1: No such file or directory (os error 2)
-Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+ GET / 200 in 195ms (compile: 99ms, render: 96ms)
+ GET / 200 in 47ms (compile: 4ms, render: 44ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 40ms (compile: 5ms, render: 35ms)
+✓ Compiled in 183ms
+✓ Compiled in 42ms
 
 thread 'tokio-runtime-worker' (1466562) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
 range start index 14999827 out of range for slice of length 14998627
@@ -116,5 +117,8 @@ Import traces:
 https://nextjs.org/docs/messages/module-not-found
 
 
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+✓ Compiled in 161ms
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
