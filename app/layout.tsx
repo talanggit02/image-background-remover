@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "AI Background Remover - 免费在线图片背景移除工具",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
+        <Script src="https://accounts.google.com/gsi/client" strategy="beforeInteractive" />
         {children}
       </body>
     </html>

@@ -30,34 +30,40 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
 ✓ Compiled in 42ms
  GET / 200 in 176ms (compile: 66ms, render: 110ms)
 ✓ Compiled in 100ms
-bo-persistence/src/static_sorted_file.rs:387:51:
-range start index 14999827 out of range for slice of length 14998627
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ GET / 200 in 172ms (compile: 58ms, render: 114ms)
+ GET / 200 in 42ms (compile: 3ms, render: 39ms)
+ POST /api/remove-background 200 in 29.1s
+ POST /api/remove-background 200 in 33.2s
+⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...
+▲ Next.js 16.1.7 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://10.3.0.6:3001
+- Environments: .env.local
 
-thread 'tokio-runtime-worker' (1466607) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
-range start index 14999851 out of range for slice of length 14998627
+✓ Starting...
 
-thread 'tokio-runtime-worker' (1466607) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
-range start index 14999787 out of range for slice of length 14998627
-⨯ ./node_modules/styled-jsx/style.js:1:18
-Module not found: Can't resolve './dist/index'
-[0m[31m[1m>[22m[39m[90m 1 |[39m module[33m.[39mexports [33m=[39m require([32m'./dist/index'[39m)[33m.[39mstyle
- [90m   |[39m                  [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
- [90m 2 |[39m[0m
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
 
-range start index 14999787 out of range for slice of length 14998627
+  	- include was updated to add 'out/types/**/*.ts'
+  	- include was updated to add 'out/dev/types/**/*.ts'
 
-Debug info:
-- Execution of <ModuleAssetContext as AssetContext>::resolve_asset failed
-- Execution of resolve failed
-- range start index 14999787 out of range for slice of length 14998627
-
-
-Import traces:
-  Client Component Browser:
-    ./node_modules/styled-jsx/style.js [Client Component Browser]
-    ./projects/image-background-remover/app/page.tsx [Client Component Browser]
-    ./projects/image-background-remover/app/page.tsx [Server Component]
+✓ Ready in 484ms
+⚠ Cross origin request detected from polymer-corporate-define-award.trycloudflare.com to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+○ Compiling / ...
+ GET / 200 in 3.5s (compile: 3.4s, render: 192ms)
+ GET / 200 in 3.1s (compile: 3.0s, render: 91ms)
+ GET / 200 in 71ms (compile: 7ms, render: 64ms)
+ GET /fwc/ 404 in 470ms (compile: 389ms, render: 81ms)
+ GET /fb/ 404 in 38ms (compile: 3ms, render: 35ms)
+ GET /res/favicon.ico 404 in 39ms (compile: 3ms, render: 36ms)
+ GET /assets/favicon-aOK6_042.ico 404 in 34ms (compile: 4ms, render: 30ms)
+ GET /wp-content/uploads/2020/10/official-logo-512x512.png 404 in 31ms (compile: 2ms, render: 28ms)
+ GET / 200 in 60ms (compile: 4ms, render: 56ms)
+ GET /favicon-32x32.png?v=e0e3ed8f59d769b053c145391db63c0d 404 in 37ms (compile: 4ms, render: 34ms)
+[?25h
+  ./projects/image-background-remover/app/page.tsx [Server Component]
 
   Client Component SSR:
     ./node_modules/styled-jsx/style.js [Client Component SSR]
@@ -124,3 +130,16 @@ Persisting failed: Another write batch or compaction is already active (Only a s
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+ GET / 200 in 181ms (compile: 75ms, render: 106ms)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+ GET / 200 in 28ms (compile: 2ms, render: 26ms)
+
+thread 'tokio-runtime-worker' (1466562) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 14999855 out of range for slice of length 14998627
+
+thread 'tokio-runtime-worker' (1466607) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 14999855 out of range for slice of length 14998627
+○ Compiling /_not-found/page ...
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...

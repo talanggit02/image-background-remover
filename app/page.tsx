@@ -1,6 +1,28 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+
+const GOOGLE_CLIENT_ID = "895765422209-rla06a14hk41iogec73qml1vlooo9g2f.apps.googleusercontent.com";
+
+interface GoogleUser {
+  name: string;
+  email: string;
+  picture: string;
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: object) => void;
+          renderButton: (element: HTMLElement, config: object) => void;
+          disableAutoSelect: () => void;
+        };
+      };
+    };
+  }
+}
 
 interface ProcessingState {
   isProcessing: boolean;
@@ -14,8 +36,12 @@ interface ResultState {
 }
 
 export default function Home() {
+  const [user, setUser] = useState<GoogleUser | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [processing, setProcessing] = useState<ProcessingState>({
     isProcessing: false,
     progress: 0,
@@ -25,80 +51,95 @@ export default function Home() {
     originalImage: null,
     processedImage: null,
   });
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
 
-  const handleFileSelect = (file: File) => {
+  // ── Google OAuth ──
+  useEffect(() => {
+    const initGoogle = () => {
+      if (!window.google) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response: { credential: string }) => {
+          const payload = JSON.parse(atob(response.credential.split(".")[1]));
+          setUser({ name: payload.name, email: payload.email, picture: payload.picture });
+          setShowLoginModal(false);
+        },
+      });
+    };
+    if (window.google) {
+      initGoogle();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google) { initGoogle(); clearInterval(interval); }
+      }, 300);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showLoginModal && googleBtnRef.current && window.google) {
+      googleBtnRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: "outline", size: "large", text: "signin_with", width: 280, logo_alignment: "left",
+      });
+    }
+  }, [showLoginModal]);
+
+  const handleLogout = () => {
+    window.google?.accounts.id.disableAutoSelect();
+    setUser(null);
+  };
+
+  const handleFileSelect = useCallback((file: File) => {
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      setProcessing({
-        isProcessing: false,
-        progress: 0,
-        error: "仅支持 JPG、PNG、WebP 格式的图片",
-      });
+      setProcessing({ isProcessing: false, progress: 0, error: "仅支持 JPG、PNG、WebP 格式的图片" });
       return;
     }
-
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setProcessing({
-        isProcessing: false,
-        progress: 0,
-        error: "图片太大，请上传 5MB 以内的图片",
-      });
+    if (file.size > 5 * 1024 * 1024) {
+      setProcessing({ isProcessing: false, progress: 0, error: "图片太大，请上传 5MB 以内的图片" });
       return;
     }
-
     setSelectedFile(file);
     setProcessing({ isProcessing: false, progress: 0, error: null });
     setResult({ originalImage: null, processedImage: null });
-
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreviewUrl(e.target?.result as string);
-    };
+    reader.onload = (e) => setPreviewUrl(e.target?.result as string);
     reader.readAsDataURL(file);
-  };
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }, [handleFileSelect]);
 
   const handleRemoveBackground = async () => {
     if (!selectedFile) return;
-
     setProcessing({ isProcessing: true, progress: 0, error: null });
-
     try {
-      const progressInterval = setInterval(() => {
+      const interval = setInterval(() => {
         setProcessing((prev) => {
-          if (prev.progress >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return { ...prev, progress: prev.progress + 10 };
+          if (prev.progress >= 85) { clearInterval(interval); return prev; }
+          return { ...prev, progress: prev.progress + 8 };
         });
-      }, 500);
+      }, 400);
 
       const formData = new FormData();
       formData.append("image_file", selectedFile);
-
-      const response = await fetch("/api/remove-background", {
-        method: "POST",
-        body: formData,
-      });
-
-      clearInterval(progressInterval);
+      const response = await fetch("/api/remove-background", { method: "POST", body: formData });
+      clearInterval(interval);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "处理失败，请稍后重试");
+        const err = await response.json();
+        throw new Error(err.error || "处理失败，请稍后重试");
       }
 
       const blob = await response.blob();
-      const processedImageUrl = URL.createObjectURL(blob);
-
-      setResult({
-        originalImage: previewUrl,
-        processedImage: processedImageUrl,
-      });
-
+      setResult({ originalImage: previewUrl, processedImage: URL.createObjectURL(blob) });
       setProcessing({ isProcessing: false, progress: 100, error: null });
     } catch (error) {
       setProcessing({
@@ -113,7 +154,7 @@ export default function Home() {
     if (!result.processedImage) return;
     const link = document.createElement("a");
     link.href = result.processedImage;
-    link.download = `removed-background-${Date.now()}.png`;
+    link.download = `removed-bg-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -125,359 +166,331 @@ export default function Home() {
     setProcessing({ isProcessing: false, progress: 0, error: null });
     setResult({ originalImage: null, processedImage: null });
     setZoomLevel(100);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setShowOriginal(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-6 py-5">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Background Remover
-          </h1>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)", color: "#fff", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+
+      {/* ── Header ── */}
+      <header style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, background: "linear-gradient(135deg, #a855f7, #6366f1)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, boxShadow: "0 4px 16px rgba(168,85,247,0.4)" }}>✂️</div>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.5 }}>BGRemover</span>
+            <span style={{ fontSize: 11, fontWeight: 600, background: "rgba(168,85,247,0.2)", color: "#c084fc", padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(168,85,247,0.3)" }}>AI</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
+            <div style={{ width: 8, height: 8, background: "#22c55e", borderRadius: "50%", boxShadow: "0 0 8px #22c55e" }} />
+            服务正常
+          </div>
+        </div>
+        {/* Login area */}
+        <div>
+          {user ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img src={user.picture} alt={user.name} style={{ width: 34, height: 34, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.5)" }} />
+              <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{user.name}</span>
+              <button onClick={handleLogout} style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>退出</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              登录
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Main */}
-      <main className="max-w-5xl mx-auto px-6 py-16">
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px" }}>
         {!result.processedImage ? (
-          <div className="text-center">
-            {/* Hero Section */}
-            <div className="mb-12">
-              <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                Remove Image
-                <br />
-                <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Background Instantly
+          <>
+            {/* ── Hero ── */}
+            <section style={{ textAlign: "center", padding: "72px 0 56px" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 999, padding: "6px 16px", fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 32 }}>
+                <span style={{ color: "#a78bfa" }}>✦</span>
+                AI 驱动 · 5秒完成 · 每月50张免费
+              </div>
+
+              <h1 style={{ fontSize: 64, fontWeight: 900, lineHeight: 1.05, margin: "0 0 20px", letterSpacing: -2 }}>
+                一键移除<br />
+                <span style={{ background: "linear-gradient(90deg, #a78bfa, #ec4899, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  图片背景
                 </span>
-              </h2>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                100% Automatic and Free • AI-Powered • No Quality Loss
+              </h1>
+              <p style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", maxWidth: 480, margin: "0 auto 48px", lineHeight: 1.7 }}>
+                上传图片，AI 自动识别主体，秒级生成透明背景图。电商抠图、证件照、设计素材，一键搞定。
               </p>
-            </div>
 
-            {/* Upload Section */}
-            <div className="max-w-2xl mx-auto mb-16">
-              {!previewUrl ? (
-                <div>
-                  {/* Main CTA Button */}
-                  <button
+              {/* Steps */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 56 }}>
+                {[
+                  { num: "01", title: "上传图片", desc: "拖拽或点击选择" },
+                  { num: "02", title: "AI 处理", desc: "智能识别移除背景" },
+                  { num: "03", title: "下载结果", desc: "获取透明 PNG" },
+                ].map((s, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                    <div style={{ textAlign: "center", padding: "0 24px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", marginBottom: 4, letterSpacing: 1 }}>{s.num}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{s.title}</div>
+                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{s.desc}</div>
+                    </div>
+                    {i < 2 && <div style={{ width: 48, height: 1, background: "linear-gradient(90deg, rgba(167,139,250,0.5), transparent)", flexShrink: 0 }} />}
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Upload Zone ── */}
+              <div style={{ maxWidth: 640, margin: "0 auto" }}>
+                {!previewUrl ? (
+                  <div
+                    onDrop={handleDrop}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
                     onClick={() => fileInputRef.current?.click()}
-                    className="group relative px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xl font-semibold rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
-                  >
-                    <span className="flex items-center justify-center gap-3">
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                      Upload Image
-                    </span>
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFileSelect(file);
+                    style={{
+                      border: isDragging ? "2px dashed #a78bfa" : "2px dashed rgba(255,255,255,0.13)",
+                      borderRadius: 24,
+                      padding: "64px 40px",
+                      cursor: "pointer",
+                      background: isDragging ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.02)",
+                      transition: "all 0.25s",
+                      textAlign: "center",
                     }}
-                    className="hidden"
-                  />
-
-                  {/* Supported Formats */}
-                  <div className="mt-8 flex items-center justify-center gap-6 text-sm text-gray-500">
-                    {["JPG", "PNG", "WebP"].map((format) => (
-                      <div key={format} className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        <span>{format}</span>
-                      </div>
-                    ))}
-                    <span className="text-gray-400">•</span>
-                    <span>Max 5MB</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
-                  {/* Preview */}
-                  <div className="mb-6">
-                    <div className="bg-gray-50 rounded-2xl p-6">
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="max-h-80 mx-auto object-contain"
-                      />
+                  >
+                    <div style={{ fontSize: 56, marginBottom: 16 }}>{isDragging ? "📂" : "🖼️"}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+                      {isDragging ? "松开即可上传" : "拖拽图片到这里"}
+                    </div>
+                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.35)", marginBottom: 28 }}>或者点击下方按钮选择文件</div>
+                    <button
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 36px", background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", borderRadius: 14, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,58,237,0.4)" }}
+                    >
+                      <span style={{ fontSize: 18 }}>+</span> 选择图片
+                    </button>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 24, fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
+                      <span>✓ JPG</span><span>✓ PNG</span><span>✓ WebP</span>
+                      <span style={{ color: "rgba(255,255,255,0.15)" }}>·</span>
+                      <span>最大 5MB</span>
                     </div>
                   </div>
-
-                  {/* Progress */}
-                  {processing.isProcessing && (
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-gray-700">
-                          Processing...
-                        </span>
-                        <span className="text-sm font-bold text-purple-600">
-                          {processing.progress}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className="h-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full transition-all duration-300"
-                          style={{ width: `${processing.progress}%` }}
-                        />
+                ) : (
+                  /* Preview card */
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 24, overflow: "hidden" }}>
+                    <div style={{ padding: 24 }}>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 16, overflow: "hidden", position: "relative" }}>
+                        <img src={previewUrl} alt="预览" style={{ width: "100%", maxHeight: 300, objectFit: "contain", display: "block" }} />
+                        <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 12, padding: "4px 10px", borderRadius: 999 }}>
+                          {selectedFile?.name}
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Error */}
-                  {processing.error && (
-                    <div className="mb-6 bg-red-50 rounded-2xl p-4">
-                      <p className="text-red-700 text-sm font-medium">
-                        {processing.error}
-                      </p>
+                    {/* Progress */}
+                    {processing.isProcessing && (
+                      <div style={{ padding: "0 24px 16px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
+                          <span style={{ color: "rgba(255,255,255,0.5)" }}>AI 正在处理中...</span>
+                          <span style={{ color: "#a78bfa", fontWeight: 700 }}>{processing.progress}%</span>
+                        </div>
+                        <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${processing.progress}%`, background: "linear-gradient(90deg, #7c3aed, #4f46e5)", borderRadius: 99, transition: "width 0.3s" }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Error */}
+                    {processing.error && (
+                      <div style={{ margin: "0 24px 16px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: "12px 16px" }}>
+                        <p style={{ color: "#fca5a5", fontSize: 14, margin: 0 }}>⚠️ {processing.error}</p>
+                        <button onClick={() => setProcessing({ ...processing, error: null })} style={{ color: "#f87171", fontSize: 12, background: "none", border: "none", cursor: "pointer", marginTop: 4, padding: 0 }}>关闭</button>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div style={{ padding: "0 24px 24px", display: "flex", gap: 12 }}>
                       <button
-                        onClick={() =>
-                          setProcessing({ ...processing, error: null })
-                        }
-                        className="mt-2 text-sm text-red-600 hover:text-red-700"
+                        onClick={handleRemoveBackground}
+                        disabled={processing.isProcessing}
+                        style={{ flex: 1, padding: "15px 0", background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", borderRadius: 14, cursor: processing.isProcessing ? "not-allowed" : "pointer", opacity: processing.isProcessing ? 0.6 : 1, boxShadow: "0 4px 20px rgba(124,58,237,0.35)" }}
                       >
-                        Dismiss
+                        {processing.isProcessing ? "⏳ 处理中..." : "✂️ 立即移除背景"}
+                      </button>
+                      <button
+                        onClick={handleReset}
+                        disabled={processing.isProcessing}
+                        style={{ padding: "15px 24px", background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 15, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, cursor: "pointer" }}
+                      >
+                        取消
                       </button>
                     </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={handleRemoveBackground}
-                      disabled={processing.isProcessing}
-                      className="flex-1 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
-                    >
-                      {processing.isProcessing ? "Processing..." : "Remove Background"}
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      disabled={processing.isProcessing}
-                      className="px-8 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </section>
 
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                {
-                  icon: "⚡",
-                  title: "Lightning Fast",
-                  desc: "Process images in seconds with advanced AI",
-                },
-                {
-                  icon: "🎯",
-                  title: "High Quality",
-                  desc: "Preserve fine details and edges perfectly",
-                },
-                {
-                  icon: "🔒",
-                  title: "100% Private",
-                  desc: "Images deleted instantly after processing",
-                },
-              ].map((feature, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-2xl p-8 shadow-md hover:shadow-lg transition-shadow border border-gray-100"
-                >
-                  <div className="text-4xl mb-4">{feature.icon}</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {feature.desc}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+            {/* ── Features ── */}
+            <section style={{ paddingBottom: 80 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+                {[
+                  { icon: "⚡", title: "极速处理", desc: "AI 5秒内完成抠图，告别漫长等待", color: "#f59e0b" },
+                  { icon: "🎯", title: "精准识别", desc: "毫发必现，边缘细节完美保留", color: "#38bdf8" },
+                  { icon: "🔒", title: "隐私安全", desc: "图片仅在内存中处理，从不存储", color: "#34d399" },
+                  { icon: "🆓", title: "免费使用", desc: "每月 50 张免费额度，无需注册", color: "#c084fc" },
+                ].map((f, i) => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: "28px 24px" }}>
+                    <div style={{ fontSize: 36, marginBottom: 16 }}>{f.icon}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{f.title}</div>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
         ) : (
-          /* Results */
-          <div>
-            {/* Success Banner */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-8 mb-8 border border-green-100">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={3}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <div className="text-left">
-                  <h2 className="text-2xl font-bold text-green-900 mb-1">
-                    Success!
-                  </h2>
-                  <p className="text-green-700">
-                    Your image background has been removed
-                  </p>
+          /* ── Result Section ── */
+          <section style={{ padding: "48px 0 80px" }}>
+            {/* Header row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ width: 48, height: 48, background: "linear-gradient(135deg, #22c55e, #16a34a)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "0 4px 16px rgba(34,197,94,0.35)" }}>✅</div>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>背景移除成功！</div>
+                  <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>点击下方按钮下载透明 PNG 文件</div>
                 </div>
               </div>
+              <button
+                onClick={handleReset}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}
+              >
+                ← 处理新图片
+              </button>
             </div>
 
-            {/* Comparison */}
-            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 mb-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                {/* Original */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-gray-900">Original</h3>
-                    <span className="text-xs text-gray-500 font-medium px-3 py-1 bg-gray-100 rounded-full">
-                      Before
-                    </span>
-                  </div>
-                  <div className="checkerboard-bg rounded-xl p-4 border border-gray-200">
-                    <img
-                      src={result.originalImage!}
-                      alt="Original"
-                      className="w-full"
-                      style={{ transform: `scale(${zoomLevel / 100})` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Processed */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-gray-900">Processed</h3>
-                    <span className="text-xs text-white font-medium px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full">
-                      ✓ Done
-                    </span>
-                  </div>
-                  <div className="checkerboard-bg rounded-xl p-4 border border-gray-200">
-                    <img
-                      src={result.processedImage!}
-                      alt="Processed"
-                      className="w-full"
-                      style={{ transform: `scale(${zoomLevel / 100})` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Zoom */}
-              <div className="flex items-center justify-center gap-3 mb-8">
-                <span className="text-sm font-medium text-gray-700">Zoom:</span>
-                <div className="inline-flex bg-gray-100 rounded-xl p-1">
-                  {[50, 100, 150].map((level) => (
+            {/* Viewer */}
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, overflow: "hidden", marginBottom: 20 }}>
+              {/* Toolbar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display: "flex", background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 4, gap: 4 }}>
+                  {["处理后", "原图"].map((label, i) => (
                     <button
-                      key={level}
-                      onClick={() => setZoomLevel(level)}
-                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
-                        zoomLevel === level
-                          ? "bg-white text-purple-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-900"
-                      }`}
+                      key={i}
+                      onClick={() => setShowOriginal(i === 1)}
+                      style={{ padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: showOriginal === (i === 1) ? "rgba(255,255,255,0.12)" : "transparent", color: showOriginal === (i === 1) ? "#fff" : "rgba(255,255,255,0.4)" }}
                     >
-                      {level}%
+                      {label}
                     </button>
                   ))}
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>缩放</span>
+                  <div style={{ display: "flex", background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3, gap: 2 }}>
+                    {[50, 100, 150].map((z) => (
+                      <button
+                        key={z}
+                        onClick={() => setZoomLevel(z)}
+                        style={{ padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: zoomLevel === z ? "rgba(255,255,255,0.12)" : "transparent", color: zoomLevel === z ? "#fff" : "rgba(255,255,255,0.35)" }}
+                      >
+                        {z}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button
-                  onClick={handleDownload}
-                  className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  Download Image
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="px-10 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
-                >
-                  Process Another
-                </button>
-              </div>
-            </div>
-
-            {/* Tips */}
-            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-              <div className="flex items-start gap-4">
-                <div className="text-3xl">💡</div>
-                <div className="flex-1 text-left">
-                  <h3 className="font-bold text-blue-900 mb-3">
-                    Tips for Best Results
-                  </h3>
-                  <ul className="text-sm text-blue-800 space-y-2">
-                    <li>• Image is saved as PNG with transparent background</li>
-                    <li>• Works best with clear subject and simple backgrounds</li>
-                    <li>• 50 free images per month</li>
-                  </ul>
+              {/* Image area */}
+              <div style={{
+                padding: 32, minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center",
+                backgroundImage: showOriginal ? "none"
+                  : "linear-gradient(45deg,#1e1b4b 25%,transparent 25%),linear-gradient(-45deg,#1e1b4b 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1e1b4b 75%),linear-gradient(-45deg,transparent 75%,#1e1b4b 75%)",
+                backgroundSize: "24px 24px",
+                backgroundPosition: "0 0,0 12px,12px -12px,-12px 0",
+                backgroundColor: showOriginal ? "#0a0a0f" : "#0d0b2e",
+              }}>
+                <div style={{ position: "relative" }}>
+                  <img
+                    src={showOriginal ? (result.originalImage ?? "") : (result.processedImage ?? "")}
+                    alt="result"
+                    style={{ maxHeight: 480, maxWidth: "100%", display: "block", transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center", transition: "transform 0.2s" }}
+                  />
+                  <div style={{ position: "absolute", top: 10, left: 10, background: showOriginal ? "rgba(80,80,80,0.8)" : "rgba(22,163,74,0.85)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 99 }}>
+                    {showOriginal ? "原始图片" : "✓ 背景已移除"}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+
+            {/* Download / reset buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 20 }}>
+              <button
+                onClick={handleDownload}
+                style={{ padding: "18px 0", background: "linear-gradient(135deg, #16a34a, #059669)", color: "#fff", fontWeight: 700, fontSize: 17, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: "0 6px 24px rgba(22,163,74,0.35)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+              >
+                ⬇️ 下载透明 PNG
+              </button>
+              <button
+                onClick={handleReset}
+                style={{ padding: "18px 0", background: "linear-gradient(135deg, rgba(124,58,237,0.8), rgba(79,70,229,0.8))", color: "#fff", fontWeight: 600, fontSize: 16, border: "none", borderRadius: 16, cursor: "pointer" }}
+              >
+                ✂️ 再处理一张
+              </button>
+            </div>
+
+            {/* Tips */}
+            <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 16, padding: "20px 24px", display: "flex", gap: 16 }}>
+              <span style={{ fontSize: 24, flexShrink: 0 }}>💡</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#93c5fd", marginBottom: 8 }}>使用小贴士</div>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: 13, color: "rgba(147,197,253,0.65)", lineHeight: 1.8 }}>
+                  <li>· 图片已保存为 PNG 格式，背景完全透明，可直接用于设计</li>
+                  <li>· 主体与背景对比越明显，抠图效果越精准</li>
+                  <li>· 每月 50 张免费额度，次月自动重置</li>
+                </ul>
+              </div>
+            </div>
+          </section>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 mt-20">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-            <p>© 2026 Background Remover. All rights reserved.</p>
-            <p className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-green-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Secure & Private
-            </p>
+      {/* ── Footer ── */}
+      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 8 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 32px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 13, color: "rgba(255,255,255,0.25)" }}>
+          <span>© 2026 BGRemover · Powered by Remove.bg API</span>
+          <div style={{ display: "flex", gap: 24 }}>
+            <span>🔒 图片不上传存储</span>
+            <span>🔐 HTTPS 加密传输</span>
+            <span>🎁 免费版 50张/月</span>
           </div>
         </div>
       </footer>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+        style={{ display: "none" }}
+      />
+
+      {/* ── Login Modal ── */}
+      {showLoginModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowLoginModal(false); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div style={{ background: "linear-gradient(135deg, #1e1b4b, #24243e)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 24, padding: "40px 36px", width: 360, textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>✂️</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 8 }}>登录 BGRemover</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", marginBottom: 32, lineHeight: 1.6 }}>使用 Google 账号登录，享受每月 50 张免费额度</div>
+            <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 20 }} />
+            <button onClick={() => setShowLoginModal(false)} style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", marginTop: 8 }}>暂不登录</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
