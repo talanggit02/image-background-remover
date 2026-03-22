@@ -9,7 +9,7 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #1a1040;
+  background: #f0f4ff;
 }
 
 /* 棋盘格背景 - 用于显示透明图片 (浅色版本) */
