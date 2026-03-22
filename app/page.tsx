@@ -48,8 +48,9 @@ export default function Home() {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -67,10 +68,16 @@ export default function Home() {
   const [zoomLevel, setZoomLevel] = useState(100);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Toast helper ──
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  }, []);
+
   // ── Fetch quota from backend ──
   const fetchQuota = useCallback(async (google_id: string) => {
     try {
-      const res = await fetch(`/api/user/quota?google_id=${google_id}`);
+      const res = await fetch(`/api/user/quota?google_id=${encodeURIComponent(google_id)}`);
       if (res.ok) {
         const data = await res.json();
         setQuota(data.quota);
@@ -94,7 +101,7 @@ export default function Home() {
     }
   }, [fetchQuota]);
 
-  // ── Google OAuth ──
+  // ── Google OAuth + localStorage restore ──
   useEffect(() => {
     const initGoogle = () => {
       if (!window.google) return;
@@ -110,10 +117,26 @@ export default function Home() {
           };
           setUser(googleUser);
           setShowLoginModal(false);
+          // Persist to localStorage
+          localStorage.setItem("bgr_user", JSON.stringify(googleUser));
+          localStorage.setItem("bgr_credential", response.credential);
           syncUser(response.credential, payload.sub);
         },
       });
     };
+
+    // Restore from localStorage on mount
+    try {
+      const savedUser = localStorage.getItem("bgr_user");
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser) as GoogleUser;
+        setUser(parsed);
+        fetchQuota(parsed.google_id);
+      }
+    } catch {
+      // ignore
+    }
+
     if (window.google) {
       initGoogle();
     } else {
@@ -122,7 +145,7 @@ export default function Home() {
       }, 300);
       return () => clearInterval(interval);
     }
-  }, [syncUser]);
+  }, [syncUser, fetchQuota]);
 
   useEffect(() => {
     if (showLoginModal && googleBtnRef.current && window.google) {
@@ -133,11 +156,21 @@ export default function Home() {
     }
   }, [showLoginModal]);
 
+  // Close profile menu on outside click
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    const handler = () => setShowProfileMenu(false);
+    setTimeout(() => document.addEventListener("click", handler), 0);
+    return () => document.removeEventListener("click", handler);
+  }, [showProfileMenu]);
+
   const handleLogout = () => {
     window.google?.accounts.id.disableAutoSelect();
     setUser(null);
     setQuota(null);
     setShowProfileMenu(false);
+    localStorage.removeItem("bgr_user");
+    localStorage.removeItem("bgr_credential");
   };
 
   const handleFileSelect = useCallback((file: File) => {
@@ -146,8 +179,8 @@ export default function Home() {
       setProcessing({ isProcessing: false, progress: 0, error: "仅支持 JPG、PNG、WebP 格式的图片" });
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setProcessing({ isProcessing: false, progress: 0, error: "图片太大，请上传 5MB 以内的图片" });
+    if (file.size > 25 * 1024 * 1024) {
+      setProcessing({ isProcessing: false, progress: 0, error: "图片太大，请上传 25MB 以内的图片" });
       return;
     }
     setSelectedFile(file);
@@ -158,17 +191,30 @@ export default function Home() {
     reader.readAsDataURL(file);
   }, []);
 
+  // ── Upload zone click with login check ──
+  const handleUploadClick = useCallback(() => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    fileInputRef.current?.click();
+  }, [user]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
     const file = e.dataTransfer.files[0];
     if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
+  }, [handleFileSelect, user]);
 
   const handleRemoveBackground = async () => {
     if (!selectedFile) return;
 
-    // ── 未登录限制 ──
+    // ── 未登录拦截 ──
     if (!user) {
       setShowLoginModal(true);
       return;
@@ -176,7 +222,7 @@ export default function Home() {
 
     // ── 额度检查 ──
     if (quota && quota.total_remaining <= 0) {
-      setShowUpgradeModal(true);
+      setShowPaywallModal(true);
       return;
     }
 
@@ -193,7 +239,7 @@ export default function Home() {
         const errData = await useRes.json();
         if (errData.error === "no_quota") {
           setProcessing({ isProcessing: false, progress: 0, error: null });
-          setShowUpgradeModal(true);
+          setShowPaywallModal(true);
           return;
         }
         throw new Error(errData.message || "额度扣减失败");
@@ -254,26 +300,42 @@ export default function Home() {
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #f0f4ff 0%, #e8eeff 40%, #f5f0ff 70%, #eff6ff 100%)", color: "#1e293b", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
+      {/* ── Toast ── */}
+      {toastMsg && (
+        <div style={{ position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", background: "#1e293b", color: "#fff", padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 200, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", animation: "fadeIn 0.3s" }}>
+          {toastMsg}
+        </div>
+      )}
+
       {/* ── Header ── */}
       <header style={{ borderBottom: "1px solid rgba(99,102,241,0.1)", backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.85)", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
             <div style={{ width: 38, height: 38, background: "linear-gradient(135deg, #a855f7, #6366f1)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, boxShadow: "0 4px 16px rgba(168,85,247,0.25)" }}>✂️</div>
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.5, color: "#1e293b" }}>BGRemover</span>
             <span style={{ fontSize: 11, fontWeight: 600, background: "rgba(168,85,247,0.1)", color: "#7c3aed", padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(168,85,247,0.2)" }}>AI</span>
-          </div>
+          </a>
           {/* Right side */}
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#64748b" }}>
               <div style={{ width: 8, height: 8, background: "#22c55e", borderRadius: "50%", boxShadow: "0 0 8px #22c55e" }} />
               服务正常
             </div>
+            {/* Upgrade Pro button (logged-in only) */}
+            {user && (
+              <button
+                onClick={() => setShowPaywallModal(true)}
+                style={{ padding: "6px 14px", background: "linear-gradient(135deg, #f59e0b, #f97316)", color: "#fff", fontWeight: 700, fontSize: 12, border: "none", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,158,11,0.3)" }}
+              >
+                ⚡ 升级 Pro
+              </button>
+            )}
             {/* Login area */}
             {user ? (
               <div style={{ position: "relative" }}>
                 <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 12, padding: "6px 14px 6px 6px", cursor: "pointer" }}
                 >
                   <img src={user.picture} alt={user.name} style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.3)" }} />
@@ -281,7 +343,7 @@ export default function Home() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{user.name}</div>
                     {quota && (
                       <div style={{ fontSize: 11, color: quota.total_remaining > 0 ? "#7c3aed" : "#ef4444", fontWeight: 600 }}>
-                        剩余 {quota.total_remaining} 次
+                        ⚡ 剩余 {quota.total_remaining} 次
                       </div>
                     )}
                   </div>
@@ -290,58 +352,23 @@ export default function Home() {
 
                 {/* ── Profile dropdown ── */}
                 {showProfileMenu && (
-                  <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 280, background: "#fff", borderRadius: 16, border: "1px solid rgba(99,102,241,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", padding: 20, zIndex: 60 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #f1f5f9" }}>
-                      <img src={user.picture} alt={user.name} style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.3)" }} />
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>{user.name}</div>
-                        <div style={{ fontSize: 12, color: "#94a3b8" }}>{user.email}</div>
-                      </div>
-                    </div>
-
-                    {quota && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>额度详情</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                            <span style={{ color: "#64748b" }}>🎁 赠送额度</span>
-                            <span style={{ fontWeight: 700, color: "#1e293b" }}>{quota.gift_credits} 次</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                            <span style={{ color: "#64748b" }}>📦 订阅额度</span>
-                            <span style={{ fontWeight: 700, color: "#1e293b" }}>{quota.subscription_remaining} 次</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                            <span style={{ color: "#64748b" }}>💰 积分余额</span>
-                            <span style={{ fontWeight: 700, color: "#1e293b" }}>{quota.credits_balance} 次</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, paddingTop: 8, borderTop: "1px solid #f1f5f9", marginTop: 4 }}>
-                            <span style={{ fontWeight: 700, color: "#1e293b" }}>总计可用</span>
-                            <span style={{ fontWeight: 800, color: quota.total_remaining > 0 ? "#7c3aed" : "#ef4444" }}>{quota.total_remaining} 次</span>
-                          </div>
-                        </div>
-                        {quota.subscription && quota.subscription.status === "active" && (
-                          <div style={{ marginTop: 10, background: "rgba(99,102,241,0.06)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#6366f1" }}>
-                            当前套餐：{quota.subscription.plan} · 续费日：{new Date(quota.subscription.renew_at * 1000).toLocaleDateString("zh-CN")}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <button
-                        onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }}
-                        style={{ width: "100%", padding: "10px 16px", background: "linear-gradient(135deg, #7c3aed, #6366f1)", color: "#fff", fontWeight: 600, fontSize: 13, border: "none", borderRadius: 10, cursor: "pointer" }}
-                      >
-                        🚀 升级套餐
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        style={{ width: "100%", padding: "10px 16px", background: "#f8fafc", color: "#64748b", fontWeight: 600, fontSize: 13, border: "1px solid #e2e8f0", borderRadius: 10, cursor: "pointer" }}
-                      >
-                        退出登录
-                      </button>
-                    </div>
+                  <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 200, background: "#fff", borderRadius: 12, border: "1px solid rgba(99,102,241,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.12)", padding: "8px", zIndex: 60 }}>
+                    <a
+                      href="/profile"
+                      style={{ display: "block", padding: "10px 14px", borderRadius: 8, fontSize: 14, fontWeight: 500, color: "#1e293b", textDecoration: "none", cursor: "pointer" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      👤 个人中心
+                    </a>
+                    <button
+                      onClick={handleLogout}
+                      style={{ display: "block", width: "100%", padding: "10px 14px", borderRadius: 8, fontSize: 14, fontWeight: 500, color: "#64748b", background: "none", border: "none", textAlign: "left", cursor: "pointer" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      🚪 退出登录
+                    </button>
                   </div>
                 )}
               </div>
@@ -365,7 +392,7 @@ export default function Home() {
             <section style={{ textAlign: "center", padding: "72px 0 56px" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.12)", borderRadius: 999, padding: "6px 16px", fontSize: 13, color: "#6366f1", marginBottom: 32 }}>
                 <span style={{ color: "#a78bfa" }}>✦</span>
-                AI 驱动 · 5秒完成 · 每月50张免费
+                AI 驱动 · 5秒完成 · 注册送3次免费
               </div>
 
               <h1 style={{ fontSize: 64, fontWeight: 900, lineHeight: 1.05, margin: "0 0 20px", letterSpacing: -2, color: "#1e293b" }}>
@@ -403,7 +430,7 @@ export default function Home() {
                     onDrop={handleDrop}
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleUploadClick}
                     style={{
                       border: isDragging ? "2px dashed #7c3aed" : "2px dashed rgba(99,102,241,0.2)",
                       borderRadius: 24,
@@ -427,7 +454,7 @@ export default function Home() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 24, fontSize: 13, color: "#94a3b8" }}>
                       <span>✓ JPG</span><span>✓ PNG</span><span>✓ WebP</span>
                       <span style={{ color: "#cbd5e1" }}>·</span>
-                      <span>最大 5MB</span>
+                      <span>最大 25MB</span>
                     </div>
                   </div>
                 ) : (
@@ -492,7 +519,7 @@ export default function Home() {
                   { icon: "⚡", title: "极速处理", desc: "AI 5秒内完成抠图，告别漫长等待" },
                   { icon: "🎯", title: "精准识别", desc: "毫发必现，边缘细节完美保留" },
                   { icon: "🔒", title: "隐私安全", desc: "图片仅在内存中处理，从不存储" },
-                  { icon: "🆓", title: "免费使用", desc: "每月 50 张免费额度，无需注册" },
+                  { icon: "🆓", title: "注册即用", desc: "注册送 3 次免费额度，用完可充值" },
                 ].map((f, i) => (
                   <div key={i} style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(99,102,241,0.08)", borderRadius: 20, padding: "28px 24px" }}>
                     <div style={{ fontSize: 36, marginBottom: 16 }}>{f.icon}</div>
@@ -600,7 +627,7 @@ export default function Home() {
                 <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: 13, color: "#64748b", lineHeight: 1.8 }}>
                   <li>· 图片已保存为 PNG 格式，背景完全透明，可直接用于设计</li>
                   <li>· 主体与背景对比越明显，抠图效果越精准</li>
-                  <li>· 每月 50 张免费额度，次月自动重置</li>
+                  <li>· 支持 JPG、PNG、WebP 格式，最大 25MB</li>
                 </ul>
               </div>
             </div>
@@ -615,7 +642,7 @@ export default function Home() {
           <div style={{ display: "flex", gap: 24 }}>
             <span>🔒 图片不上传存储</span>
             <span>🔐 HTTPS 加密传输</span>
-            <span>🎁 免费版 50张/月</span>
+            <span>🎁 注册送 3 次免费</span>
           </div>
         </div>
       </footer>
@@ -638,7 +665,7 @@ export default function Home() {
             <div style={{ fontSize: 40, marginBottom: 16 }}>✂️</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", marginBottom: 8 }}>登录 BGRemover</div>
             <div style={{ fontSize: 14, color: "#64748b", marginBottom: 32, lineHeight: 1.6 }}>
-              {!user ? "使用 Google 账号登录，享受每月 50 张免费额度" : "登录后即可使用 AI 背景移除功能"}
+              使用 Google 账号登录，注册即送 3 次免费额度
             </div>
             <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", marginBottom: 20 }} />
             <button onClick={() => setShowLoginModal(false)} style={{ fontSize: 13, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", marginTop: 8 }}>暂不登录</button>
@@ -646,55 +673,75 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Upgrade/Pricing Modal ── */}
-      {showUpgradeModal && (
+      {/* ── Paywall Modal (额度不足引导) ── */}
+      {showPaywallModal && (
         <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPaywallModal(false); }}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          <div style={{ background: "#fff", border: "1px solid rgba(99,102,241,0.1)", borderRadius: 24, padding: "40px 36px", width: 680, boxShadow: "0 24px 80px rgba(0,0,0,0.15)" }}>
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#1e293b", marginBottom: 8 }}>升级套餐</div>
-              <div style={{ fontSize: 15, color: "#64748b" }}>
-                {quota && quota.total_remaining <= 0 ? "您的额度已用完，升级套餐继续使用" : "选择适合您的套餐，解锁更多额度"}
+          <div style={{ background: "#fff", border: "1px solid rgba(99,102,241,0.1)", borderRadius: 24, padding: "36px 32px", width: 520, boxShadow: "0 24px 80px rgba(0,0,0,0.15)" }}>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", marginBottom: 8 }}>额度已用完</div>
+              <div style={{ fontSize: 14, color: "#64748b" }}>选择适合您的方案继续使用</div>
+            </div>
+
+            {/* ── 积分包 ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 10 }}>💰 积分包（一次性购买，永久有效）</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                {[
+                  { name: "入门包", price: "$1.9", count: "5次", unit: "$0.38/次" },
+                  { name: "标准包", price: "$4.9", count: "15次", unit: "$0.33/次" },
+                  { name: "大包", price: "$9.9", count: "35次", unit: "$0.28/次" },
+                ].map((p, i) => (
+                  <div key={i} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{p.name}</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: "#1e293b", marginBottom: 2 }}>{p.price}</div>
+                    <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, marginBottom: 2 }}>{p.count}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>{p.unit}</div>
+                    <button
+                      onClick={() => showToast("PayPal 支付即将上线，敬请期待 🚀")}
+                      style={{ width: "100%", padding: "8px 0", background: "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 12, border: "none", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      立即购买
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-              {[
-                { name: "基础版", price: "¥29", period: "/月", quota: "200 张/月", features: ["高清输出", "优先处理队列", "邮件支持"], color: "#3b82f6", popular: false },
-                { name: "专业版", price: "¥99", period: "/月", quota: "1,000 张/月", features: ["4K 超清输出", "批量处理", "API 接入", "专属客服"], color: "#7c3aed", popular: true },
-                { name: "企业版", price: "¥499", period: "/月", quota: "无限使用", features: ["全部专业版功能", "团队管理", "自定义 API", "SLA 保障"], color: "#0ea5e9", popular: false },
-              ].map((plan, i) => (
-                <div key={i} style={{ position: "relative", background: plan.popular ? "linear-gradient(135deg, #7c3aed, #6366f1)" : "#f8fafc", border: plan.popular ? "none" : "1px solid #e2e8f0", borderRadius: 20, padding: "28px 20px", textAlign: "center" }}>
-                  {plan.popular && (
-                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "#f59e0b", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 12px", borderRadius: 99 }}>
-                      最受欢迎
+            {/* ── 订阅套餐 ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 10 }}>📦 订阅套餐（每月重置额度）</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                {[
+                  { name: "基础版", price: "$4.9", period: "/月", count: "20次/月", yearly: "年付 $47.0" },
+                  { name: "专业版", price: "$12.9", period: "/月", count: "60次/月", yearly: "年付 $123.8" },
+                  { name: "企业版", price: "$39.9", period: "/月", count: "200次/月", yearly: "年付 $383.0" },
+                ].map((p, i) => (
+                  <div key={i} style={{ background: i === 1 ? "linear-gradient(135deg, #7c3aed, #6366f1)" : "#f8fafc", border: i === 1 ? "none" : "1px solid #e2e8f0", borderRadius: 14, padding: "16px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: i === 1 ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 4 }}>{p.name}</div>
+                    <div>
+                      <span style={{ fontSize: 22, fontWeight: 900, color: i === 1 ? "#fff" : "#1e293b" }}>{p.price}</span>
+                      <span style={{ fontSize: 12, color: i === 1 ? "rgba(255,255,255,0.7)" : "#94a3b8" }}>{p.period}</span>
                     </div>
-                  )}
-                  <div style={{ fontSize: 16, fontWeight: 700, color: plan.popular ? "#fff" : "#1e293b", marginBottom: 8 }}>{plan.name}</div>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ fontSize: 32, fontWeight: 900, color: plan.popular ? "#fff" : plan.color }}>{plan.price}</span>
-                    <span style={{ fontSize: 14, color: plan.popular ? "rgba(255,255,255,0.7)" : "#94a3b8" }}>{plan.period}</span>
+                    <div style={{ fontSize: 12, color: i === 1 ? "rgba(255,255,255,0.9)" : "#7c3aed", fontWeight: 600, marginBottom: 2 }}>{p.count}</div>
+                    <div style={{ fontSize: 11, color: i === 1 ? "rgba(255,255,255,0.6)" : "#94a3b8", marginBottom: 10 }}>{p.yearly}（8折）</div>
+                    <button
+                      onClick={() => showToast("PayPal 支付即将上线，敬请期待 🚀")}
+                      style={{ width: "100%", padding: "8px 0", background: i === 1 ? "rgba(255,255,255,0.2)" : "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 12, border: i === 1 ? "1px solid rgba(255,255,255,0.3)" : "none", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      立即订阅
+                    </button>
                   </div>
-                  <div style={{ fontSize: 13, color: plan.popular ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 20, fontWeight: 600 }}>{plan.quota}</div>
-                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", fontSize: 13, color: plan.popular ? "rgba(255,255,255,0.85)" : "#64748b", lineHeight: 2 }}>
-                    {plan.features.map((f, fi) => (
-                      <li key={fi}>✓ {f}</li>
-                    ))}
-                  </ul>
-                  <button
-                    style={{ width: "100%", padding: "12px 0", background: plan.popular ? "rgba(255,255,255,0.2)" : plan.color, color: "#fff", fontWeight: 700, fontSize: 14, border: plan.popular ? "1px solid rgba(255,255,255,0.3)" : "none", borderRadius: 12, cursor: "pointer" }}
-                  >
-                    选择此套餐
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div style={{ textAlign: "center" }}>
-              <button onClick={() => setShowUpgradeModal(false)} style={{ fontSize: 14, color: "#94a3b8", background: "none", border: "none", cursor: "pointer" }}>暂不升级</button>
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 8 }}>
+              <a href="/profile" style={{ fontSize: 13, color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}>查看完整套餐详情 →</a>
+              <button onClick={() => setShowPaywallModal(false)} style={{ fontSize: 13, color: "#94a3b8", background: "none", border: "none", cursor: "pointer" }}>暂不购买</button>
             </div>
           </div>
         </div>
