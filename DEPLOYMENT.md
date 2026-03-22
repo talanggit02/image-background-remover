@@ -1,98 +1,73 @@
 # Cloudflare Pages 部署指南
 
-## ✅ 已完成的配置
+## ✅ 已完成
 
-1. **Cloudflare Pages 项目已创建**
-   - 项目名称: image-background-remover
-   - 项目ID: 2fb1cf94-75c6-4940-a3d3-f39ea8c03870
-   - 预览URL: https://image-background-remover-7t0.pages.dev
+1. **代码已推送** - GitHub: https://github.com/talanggit02/image-background-remover
+2. **Cloudflare Pages 项目** - [image-background-remover](https://dash.cloudflare.com/0e2ff896d194e80da8c5508865d568b5/pages/view/image-background-remover)
+3. **预览URL** - https://image-background-remover-7t0.pages.dev
 
-2. **环境变量已配置**
-   - REMOVE_BG_API_KEY: nG2CcL1YQx7XN7VcUwCRegTw
+## ⚠️ 需要手动更新的配置
 
-3. **构建设置已配置**
-   - 构建命令: npm run build
-   - 输出目录: .next
-   - 生产分支: main
+### Cloudflare Pages Dashboard 上的构建设置
 
-## 📋 需要手动完成的步骤(仅需一次)
+**必须修改为以下配置：**
 
-### 步骤 1: 访问 Cloudflare Dashboard
+| 配置项 | 正确值 |
+|--------|--------|
+| Build command | `npx @cloudflare/next-on-pages` |
+| Build output directory | `.vercel/output/static` |
+| Root directory | （留空） |
+| NODE_VERSION | `18`（或更高） |
 
-打开浏览器,访问:
-```
-https://dash.cloudflare.com/0e2ff896d194e80da8c5508865d568b5/pages/view/image-background-remover
-```
+**不要使用：**
+- ~~Build command: `npm run build`~~ — 会导致递归调用
+- ~~Build output directory: `.next`~~ — 这是 Next.js 原始输出，不是 Pages 需要的格式
 
-### 步骤 2: 连接 GitHub
+### 兼容性标志（Compatibility Flags）
 
-1. 点击页面上的 **"Connect to Git"** 或 **"Set up GitHub deployments"** 按钮
-2. 点击 **"Connect GitHub Account"**
-3. 在弹出窗口中授权 Cloudflare 访问你的 GitHub
-4. 选择仓库: **talanggit02/image-background-remover**
-5. 点击 **"Begin setup"**
+在 Settings > Functions > Compatibility Flags 中，确保 **production 和 preview** 都设置了：
+- `nodejs_compat`
 
-### 步骤 3: 确认配置
+### 环境变量
 
-确保以下设置正确:
-```
-✅ Project name: image-background-remover
-✅ Production branch: main
-✅ Build command: npm run build
-✅ Build output directory: .next
-✅ Root directory: (留空)
-✅ Environment variables:
-   - REMOVE_BG_API_KEY = nG2CcL1YQx7XN7VcUwCRegTw (已配置)
-```
+| 变量名 | 值 |
+|--------|-----|
+| REMOVE_BG_API_KEY | nG2CcL1YQx7XN7VcUwCRegTw |
+| NODE_VERSION | 18 |
 
-### 步骤 4: 保存并部署
+### D1 数据库绑定
 
-点击 **"Save and Deploy"** 按钮
+在 Settings > Functions > D1 database bindings 中：
+- 变量名: `DB`
+- 已绑定数据库: `bgremover-db` (ID: 9304a34f-00d9-4993-a03a-0c5951014566)
 
-首次部署大约需要 3-5 分钟。
+## 架构说明
 
-## 🎉 部署完成后
+项目使用 `@cloudflare/next-on-pages` 将 Next.js 打包为 Cloudflare Pages 兼容格式：
 
-1. **生产环境URL**: https://image-background-remover-7t0.pages.dev
-2. **自动部署**: 以后每次推送代码到 `main` 分支都会自动部署
+1. `npx @cloudflare/next-on-pages` 会先内部执行 `next build`
+2. 然后将 Next.js 的输出转换为 `.vercel/output/static/`
+3. 其中 `_worker.js` 包含所有 Edge Function Routes
+4. API 通过 `app/api/` 目录下的 Next.js Route Handlers 实现
+5. D1 绑定通过 `getRequestContext()` 从 `@cloudflare/next-on-pages` 获取
 
-## 🔄 自动部署流程
+**重要:** 不要使用 `functions/` 目录的 Pages Functions，它们会被 `_worker.js` 覆盖。所有 API 逻辑已迁移到 `app/api/` 下。
 
-连接 GitHub 后,以下操作会自动触发部署:
-- 推送代码到 `main` 分支 → 部署到生产环境
-- 创建 Pull Request → 生成预览链接
-- 合并 PR → 自动部署到生产环境
+## API 路由清单
 
-## 📝 当前项目状态
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/api/auth/sync` | POST | 登录同步，首次注册送3次额度 |
+| `/api/remove-background` | POST | 调用 Remove.bg API 移除背景 |
+| `/api/use-quota` | POST | 扣减额度（gift→subscription→credits） |
+| `/api/user/quota` | GET | 查询用户额度状态 |
+| `/api/user/history` | GET | 查询使用记录（最近50条） |
 
-- ✅ GitHub 仓库: https://github.com/talanggit02/image-background-remover
-- ✅ 代码已推送: 是
-- ✅ 构建测试: 通过
-- ✅ 环境变量: 已配置
-- ⏳ GitHub 集成: 等待手动连接
+## 更新部署步骤
 
-## 🔧 故障排除
-
-如果部署失败:
-
-1. **检查构建日志**
-   - 在 Cloudflare Dashboard 查看 Deployment Logs
-   - 常见问题: 依赖安装失败、构建超时
-
-2. **检查环境变量**
-   - 确保 REMOVE_BG_API_KEY 已正确设置
-
-3. **检查构建配置**
-   - Build command: npm run build
-   - Output directory: .next
-
-## 📞 需要帮助?
-
-如果遇到问题,请提供:
-- 错误截图
-- Deployment Logs 内容
-- Cloudflare Dashboard 中的配置截图
-
----
-
-**注意**: 由于 Cloudflare Pages 的 GitHub 集成需要用户手动授权(涉及 GitHub OAuth),所以这一步无法完全自动化完成。但只需要操作一次,之后所有部署都会自动进行。
+1. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/0e2ff896d194e80da8c5508865d568b5/pages/view/image-background-remover)
+2. 进入 Settings > Builds & deployments
+3. 修改 Build command 为 `npx @cloudflare/next-on-pages`
+4. 修改 Build output directory 为 `.vercel/output/static`
+5. 确认环境变量 NODE_VERSION=18
+6. 触发重新部署（Deployments > Retry deployment，或推送新 commit）
