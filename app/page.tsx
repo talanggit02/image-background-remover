@@ -740,7 +740,7 @@ export default function Home() {
             </div>
 
             <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 8 }}>
-              <a href="/profile" style={{ fontSize: 13, color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}>查看完整套餐详情 →</a>
+              <a href="/pricing" style={{ fontSize: 13, color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}>查看完整套餐详情 →</a>
               <button onClick={() => setShowPaywallModal(false)} style={{ fontSize: 13, color: "#94a3b8", background: "none", border: "none", cursor: "pointer" }}>暂不购买</button>
             </div>
           </div>
