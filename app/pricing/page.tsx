@@ -8,13 +8,14 @@ interface ToastState {
 }
 
 const CREDITS_PLANS = [
-  { name: "入门包", price: "$1.9", count: 5, unit: "$0.38/次", popular: false },
-  { name: "标准包", price: "$4.9", count: 15, unit: "$0.33/次", popular: false },
-  { name: "大包", price: "$9.9", count: 35, unit: "$0.28/次", popular: true },
+  { key: "starter", name: "入门包", price: "$1.9", count: 5, unit: "$0.38/次", popular: false },
+  { key: "standard", name: "标准包", price: "$4.9", count: 15, unit: "$0.33/次", popular: false },
+  { key: "large", name: "大包", price: "$9.9", count: 35, unit: "$0.28/次", popular: true },
 ];
 
 const SUB_PLANS = [
   {
+    key: "basic",
     name: "基础版",
     price: "$4.9",
     period: "/月",
@@ -27,6 +28,7 @@ const SUB_PLANS = [
     popular: false,
   },
   {
+    key: "pro",
     name: "专业版",
     price: "$12.9",
     period: "/月",
@@ -39,6 +41,7 @@ const SUB_PLANS = [
     popular: true,
   },
   {
+    key: "enterprise",
     name: "企业版",
     price: "$39.9",
     period: "/月",
@@ -55,10 +58,75 @@ const SUB_PLANS = [
 export default function PricingPage() {
   const [toast, setToast] = useState<ToastState>({ msg: "", show: false });
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [loading, setLoading] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToast({ msg, show: true });
     setTimeout(() => setToast({ msg: "", show: false }), 3000);
+  };
+
+  const getGoogleId = (): string | null => {
+    return localStorage.getItem("google_id");
+  };
+
+  const handleBuyCredits = async (planKey: string) => {
+    const googleId = getGoogleId();
+    if (!googleId) {
+      showToast("请先登录后再购买 🔒");
+      return;
+    }
+
+    setLoading(planKey);
+    try {
+      const resp = await fetch("/api/paypal/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: planKey, google_id: googleId }),
+      });
+      const data = await resp.json() as { approve_url?: string; error?: string };
+
+      if (data.approve_url) {
+        window.location.href = data.approve_url;
+      } else {
+        showToast(data.error || "创建订单失败，请重试");
+      }
+    } catch {
+      showToast("网络错误，请重试");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSubscribe = async (planKey: string) => {
+    const googleId = getGoogleId();
+    if (!googleId) {
+      showToast("请先登录后再订阅 🔒");
+      return;
+    }
+
+    setLoading(`sub_${planKey}`);
+    try {
+      const resp = await fetch("/api/paypal/create-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: planKey,
+          billing_cycle: billingCycle,
+          google_id: googleId,
+        }),
+      });
+      const data = await resp.json() as { approve_url?: string; error?: string };
+
+      if (data.approve_url) {
+        window.location.href = data.approve_url;
+      } else {
+        showToast(data.error || "创建订阅失败，请重试");
+      }
+    } catch {
+      showToast("网络错误，请重试");
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
@@ -118,8 +186,8 @@ export default function PricingPage() {
             <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {CREDITS_PLANS.map((plan, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: 18, padding: "24px 20px", boxShadow: plan.popular ? "0 8px 32px rgba(124,58,237,0.18)" : "0 4px 16px rgba(0,0,0,0.06)", border: plan.popular ? "2px solid #7c3aed" : "1px solid #e8ecf4", position: "relative", textAlign: "center" }}>
+            {CREDITS_PLANS.map((plan) => (
+              <div key={plan.key} style={{ background: "#fff", borderRadius: 18, padding: "24px 20px", boxShadow: plan.popular ? "0 8px 32px rgba(124,58,237,0.18)" : "0 4px 16px rgba(0,0,0,0.06)", border: plan.popular ? "2px solid #7c3aed" : "1px solid #e8ecf4", position: "relative", textAlign: "center" }}>
                 {plan.popular && (
                   <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg, #7c3aed, #6366f1)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 14px", borderRadius: 20 }}>最划算</div>
                 )}
@@ -128,10 +196,11 @@ export default function PricingPage() {
                 <div style={{ fontSize: 22, fontWeight: 700, color: "#1e293b", margin: "8px 0 4px" }}>{plan.count} 次</div>
                 <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>{plan.unit}</div>
                 <button
-                  onClick={() => showToast("PayPal 支付即将上线，敬请期待 🚀")}
-                  style={{ width: "100%", padding: "11px 0", background: plan.popular ? "linear-gradient(135deg, #7c3aed, #6366f1)" : "#fff", color: plan.popular ? "#fff" : "#7c3aed", border: "2px solid #7c3aed", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                  onClick={() => handleBuyCredits(plan.key)}
+                  disabled={loading === plan.key}
+                  style={{ width: "100%", padding: "11px 0", background: plan.popular ? "linear-gradient(135deg, #7c3aed, #6366f1)" : "#fff", color: plan.popular ? "#fff" : "#7c3aed", border: "2px solid #7c3aed", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: loading === plan.key ? "wait" : "pointer", opacity: loading === plan.key ? 0.7 : 1 }}
                 >
-                  立即购买
+                  {loading === plan.key ? "跳转中..." : "立即购买"}
                 </button>
               </div>
             ))}
@@ -146,8 +215,8 @@ export default function PricingPage() {
             <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {SUB_PLANS.map((plan, i) => (
-              <div key={i} style={{ background: plan.color, borderRadius: 18, padding: "28px 22px", boxShadow: plan.popular ? "0 8px 32px rgba(124,58,237,0.22)" : "0 4px 16px rgba(0,0,0,0.06)", border: plan.popular ? "none" : "1px solid #e8ecf4", position: "relative" }}>
+            {SUB_PLANS.map((plan) => (
+              <div key={plan.key} style={{ background: plan.color, borderRadius: 18, padding: "28px 22px", boxShadow: plan.popular ? "0 8px 32px rgba(124,58,237,0.22)" : "0 4px 16px rgba(0,0,0,0.06)", border: plan.popular ? "none" : "1px solid #e8ecf4", position: "relative" }}>
                 {plan.popular && (
                   <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "#7c3aed", fontSize: 11, fontWeight: 700, padding: "3px 14px", borderRadius: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>🔥 最受欢迎</div>
                 )}
@@ -170,10 +239,11 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <button
-                  onClick={() => showToast("PayPal 支付即将上线，敬请期待 🚀")}
-                  style={{ width: "100%", padding: "12px 0", background: plan.popular ? "rgba(255,255,255,0.2)" : "linear-gradient(135deg, #7c3aed, #6366f1)", color: "#fff", border: plan.popular ? "1px solid rgba(255,255,255,0.3)" : "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                  onClick={() => handleSubscribe(plan.key)}
+                  disabled={loading === `sub_${plan.key}`}
+                  style={{ width: "100%", padding: "12px 0", background: plan.popular ? "rgba(255,255,255,0.2)" : "linear-gradient(135deg, #7c3aed, #6366f1)", color: "#fff", border: plan.popular ? "1px solid rgba(255,255,255,0.3)" : "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: loading === `sub_${plan.key}` ? "wait" : "pointer", opacity: loading === `sub_${plan.key}` ? 0.7 : 1 }}
                 >
-                  立即订阅
+                  {loading === `sub_${plan.key}` ? "跳转中..." : "立即订阅"}
                 </button>
               </div>
             ))}
@@ -187,7 +257,7 @@ export default function PricingPage() {
             {[
               { q: "积分会过期吗？", a: "不会。一次性购买的积分包永久有效，不设使用期限。" },
               { q: "订阅套餐的额度怎么算？", a: "订阅套餐的额度每月重置，未使用的额度不会累积到下个月。" },
-              { q: "什么时候开通支付？", a: "我们正在接入 PayPal 支付，预计近期上线。届时会通过邮件通知您。" },
+              { q: "支持哪些支付方式？", a: "支持 PayPal 支付，可绑定信用卡、借记卡或 PayPal 余额付款。" },
               { q: "免费赠送的 3 次用完了怎么办？", a: "购买积分包或订阅套餐后可继续使用，积分包是一次性买断，套餐是按月订阅。" },
             ].map((item, i) => (
               <div key={i} style={{ padding: "14px 18px", background: "#f8fafc", borderRadius: 12, border: "1px solid #f1f5f9" }}>
