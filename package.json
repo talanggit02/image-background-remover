@@ -4,7 +4,8 @@
   "description": "AI Background Remover - Remove image backgrounds using Remove.bg API",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npx @cloudflare/next-on-pages --skip-build",
+    "build": "npx @cloudflare/next-on-pages",
+    "build:next": "next build",
     "pages:build": "npx @cloudflare/next-on-pages",
     "start": "next start",
     "lint": "next lint"
